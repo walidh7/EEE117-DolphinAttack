@@ -1,0 +1,3 @@
+9600 baud serial
+
+If code isn't uploading: Tools -> USB CDC On Boot -> Enabled
