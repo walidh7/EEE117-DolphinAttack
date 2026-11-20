@@ -9,13 +9,16 @@
 // ---------------- CONFIGURATION ----------------
 
 #define SAMPLES          2048
-#define SAMPLING_FREQ    40000
+#define SAMPLING_FREQ    80000
 #define AUDIO_IN_PIN     4
 #define ADC_CHANNEL      ADC_CHANNEL_3
 
 #define NUM_PEAKS        5
 #define NOISE_THRESHOLD  200.0f
 #define MIN_SIGNAL_RMS   8.0f
+#define LED_PIN_DA       37
+#define LED_PIN_N        39
+#define SPEAKER_PIN      17
 
 // ---------------- FFT ----------------
 
@@ -173,8 +176,11 @@ float interpolateFrequency(int bin) {
 // ---------------- SETUP ----------------
 
 void setup() {
+    pinMode(LED_PIN_DA, OUTPUT);
+    pinMode(LED_PIN_N, OUTPUT);
+    pinMode(SPEAKER_PIN, OUTPUT);
 
-    Serial.begin(115200);
+    Serial.begin(9600);
     delay(1000);
 
     setupADC();
@@ -252,7 +258,8 @@ int detect_peaks(FrequencyPeak peaks[NUM_PEAKS], float threshold) {
   return peakCount;
 }
 // ---------------- MAIN LOOP ----------------
-
+int debounce_counter = 0;
+const int MAX_DEBOUNCE = 3;
 void loop() {
 
     if (!sampleAudio()) {
@@ -310,15 +317,44 @@ void loop() {
 
     // ---------------- SERIAL OUTPUT ----------------
     display_frequencies(peakCount, peaks);
-    delay(100);
 
     // DolphinAttack detection
+    bool detected = false;
     if (peakCount != 0) {
       for (int i = 0; i < peakCount; i++) {
         float frequency = peaks[i].frequency;
         if (frequency > 21000) {
-          Serial.println("DolphinAttack!!!")
+          detected = true;
+          break;
         }
       }
     }
+
+    if (detected) {
+        Serial.println("DolphinAttack!!!!");
+        digitalWrite(LED_PIN_DA, HIGH);
+        digitalWrite(LED_PIN_N, LOW);
+        debounce_counter = MAX_DEBOUNCE;
+    } else {
+        if (debounce_counter > 0) {
+            debounce_counter--;
+        }
+    }
+
+    if (debounce_counter == 0) {
+        digitalWrite(LED_PIN_DA, LOW); 
+        digitalWrite(LED_PIN_N, HIGH);
+    }
+
+    if (debounce_counter != 0) {
+        for (int i = 0; i < 50; i++) {
+            digitalWrite(SPEAKER_PIN, HIGH);
+            delay(1);
+            digitalWrite(SPEAKER_PIN, LOW);
+            delay(1);
+        }
+    } else {
+        delay(100);
+    }
 }
+ 
